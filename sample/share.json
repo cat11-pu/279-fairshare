@@ -1,0 +1,15 @@
+{
+  "budget": 1,
+  "tenants": { "t1": 2, "t2": 1, "t3": 1 },
+  "tenant_error_code": "E_NO_TENANT",
+  "event_error_code": "E_BAD_EVENT",
+  "state": { "demand": {}, "given": {}, "ledger": [], "applied": [] },
+  "events": [
+    { "id": 1, "kind": "need", "tenant": "t1", "amount": 5 },
+    { "id": 2, "kind": "need", "tenant": "t2", "amount": 2 },
+    { "id": 3, "kind": "settle", "total": 4 },
+    { "id": 4, "kind": "need", "tenant": "t3", "amount": 1 },
+    { "id": 5, "kind": "need", "tenant": "t1", "amount": 2 },
+    { "id": 6, "kind": "settle", "total": 2 }
+  ]
+}
