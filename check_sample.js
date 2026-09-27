@@ -45,25 +45,52 @@ emit("工作计数未超上界 =", first.judged <= first.judged_bound);
 emit("与全量对照差异 =", fingerprint(closed.state) === fingerprint(fullClosed.state) ? 0 : 1);
 
 
-// ---- 异常路径探针：真调用实现，看它报出什么码（不是从样例里抄）----
+// ---- 异常路径探针：真调用实现，看它报什么码（不是从样例里抄）----
+// 记录探针是否真的执行、错误对象是否带 code，供第 7 条机检断言取证。
+const probeTenant = { ran: false, code: null, hasCode: false };
 try {
   step(Object.assign({}, { budget: 1, tenants: { t1: 1 },
     state: { demand: {}, given: { t1: 0 }, ledger: [], applied: [] },
     events: [{ id: 1, kind: "need", tenant: "t9", amount: 1 }] }));
   emit("未知租户报码", "没有报错");
 } catch (error) {
+  probeTenant.ran = true;
+  probeTenant.code = error && error.code ? error.code : null;
+  probeTenant.hasCode = Boolean(error) && Object.prototype.hasOwnProperty.call(error, "code");
   emit("未知租户报码", error && error.code ? error.code : String(error.message));
 }
+const probeEvent = { ran: false, code: null, hasCode: false };
 try {
   step(Object.assign({}, { budget: 1, tenants: { t1: 1 },
     state: { demand: {}, given: { t1: 0 }, ledger: [], applied: [] },
     events: [{ id: 1, kind: "peek", tenant: "t1" }] }));
   emit("事件不合法报码", "没有报错");
 } catch (error) {
+  probeEvent.ran = true;
+  probeEvent.code = error && error.code ? error.code : null;
+  probeEvent.hasCode = Boolean(error) && Object.prototype.hasOwnProperty.call(error, "code");
   emit("事件不合法报码", error && error.code ? error.code : String(error.message));
 }
 
-
+// ---- 七条机检断言：全部取自上面真实调用的结果，硬失败计入退出码 ----
+const machineAssertions = [
+  ["两档结算次数不同", first.settled !== wide.settled],
+  ["收尾前账大于零而收尾后归零", first.ledger_before > 0 && closed.state.ledger.length === 0],
+  ["拆两轮中间态不同而收尾态一致",
+    fingerprint(r2.state) !== fingerprint(first.state)
+    && fingerprint(closedTwo.state) === fingerprint(closed.state)],
+  ["重放不再结算", replay.settled === 0],
+  ["工作计数不超事件条数", first.judged <= events.length && first.judged_bound === events.length],
+  ["与全量对照差异为零", fingerprint(closed.state) === fingerprint(fullClosed.state)],
+  ["异常探针真调且错误带 code",
+    probeTenant.ran && probeTenant.hasCode && probeTenant.code === "E_NO_TENANT"
+    && probeEvent.ran && probeEvent.hasCode && probeEvent.code === "E_BAD_EVENT"]
+];
+console.log("---- 七条机检断言 ----");
+machineAssertions.forEach(function (pair, index) {
+  if (pair[1]) { console.log("机检 " + (index + 1) + "/7 通过：" + pair[0]); }
+  else { __bad += 1; console.log("机检 " + (index + 1) + "/7 失败：" + pair[0]); }
+});
 // ---- 期望值（参考模型算出，与题面给的验收数值一致）----
 const EXPECTED = {
   "收尾后各租户累计分配": [
